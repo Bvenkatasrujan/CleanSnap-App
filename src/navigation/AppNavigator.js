@@ -8,7 +8,6 @@ import { Ionicons } from '@expo/vector-icons';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ReportFormScreen from '../screens/user/ReportFormScreen';
-import MapScreen from '../screens/user/MapScreen';
 import MyReportsScreen from '../screens/user/MyReportsScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminReportDetailScreen from '../screens/admin/AdminReportDetailScreen';
@@ -18,12 +17,7 @@ import { useAuth } from '../hooks/useAuth';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const TAB_ICONS = {
-  'New Report': { active: 'add-circle',   inactive: 'add-circle-outline' },
-  'My Reports': { active: 'list',         inactive: 'list-outline'       },
-  'Map':        { active: 'map',          inactive: 'map-outline'        },
-};
-
+// ✅ Map tab completely removed
 const UserTabs = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -40,35 +34,46 @@ const UserTabs = () => (
       tabBarInactiveTintColor: '#9CA3AF',
       tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
       tabBarIcon: ({ color, size, focused }) => {
-        const icons = TAB_ICONS[route.name];
-        return (
-          <Ionicons
-            name={focused ? icons.active : icons.inactive}
-            size={size}
-            color={color}
-          />
-        );
+        if (route.name === 'New Report') {
+          return (
+            <Ionicons
+              name={focused ? 'add-circle' : 'add-circle-outline'}
+              size={size} color={color}
+            />
+          );
+        }
+        if (route.name === 'My Reports') {
+          return (
+            <Ionicons
+              name={focused ? 'list' : 'list-outline'}
+              size={size} color={color}
+            />
+          );
+        }
       },
     })}
   >
-    <Tab.Screen name="New Report" component={ReportFormScreen} options={{ tabBarLabel: 'Report' }} />
-    <Tab.Screen name="My Reports" component={MyReportsScreen} options={{ tabBarLabel: 'My Reports' }} />
-    <Tab.Screen name="Map"        component={MapScreen}        options={{ tabBarLabel: 'Map' }} />
+    <Tab.Screen
+      name="New Report"
+      component={ReportFormScreen}
+      options={{ tabBarLabel: 'Report' }}
+    />
+    <Tab.Screen
+      name="My Reports"
+      component={MyReportsScreen}
+      options={{ tabBarLabel: 'My Reports' }}
+    />
   </Tab.Navigator>
 );
 
 const AppNavigator = () => {
   const { user, role, loading } = useAuth();
-
-  // ✅ Show splash screen first
   const [splashDone, setSplashDone] = useState(false);
 
-  // ✅ Show splash until animation finishes
   if (!splashDone) {
     return <SplashScreen onFinish={() => setSplashDone(true)} />;
   }
 
-  // ✅ Show loading spinner while auth checks session
   if (loading) {
     return (
       <View style={styles.splash}>
@@ -107,10 +112,8 @@ const AppNavigator = () => {
 
 const styles = StyleSheet.create({
   splash: {
-    flex: 1,
-    backgroundColor: '#F0FDF4',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flex: 1, backgroundColor: '#F0FDF4',
+    alignItems: 'center', justifyContent: 'center',
   },
   splashLogo: {
     width: 80, height: 80, borderRadius: 40,

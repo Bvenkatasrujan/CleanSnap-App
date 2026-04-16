@@ -1,9 +1,10 @@
 import React from 'react';
 import {
   View, Text, StyleSheet,
-  TouchableOpacity, Image,
+  TouchableOpacity, Image, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { deleteReport } from '../services/reportService';
 
 const STATUS_COLORS = {
   pending: { bg: '#FEF9C3', text: '#D97706', border: '#FDE68A' },
@@ -17,7 +18,7 @@ const STATUS_ICONS = {
   closed:  'close-circle-outline',
 };
 
-const ReportCard = ({ report, isAdmin, onStatusChange, onPress }) => {
+const ReportCard = ({ report, isAdmin, onStatusChange, onPress, onDelete }) => {
   const sc = STATUS_COLORS[report.status] || STATUS_COLORS.pending;
   const statusIcon = STATUS_ICONS[report.status] || 'time-outline';
 
@@ -28,14 +29,38 @@ const ReportCard = ({ report, isAdmin, onStatusChange, onPress }) => {
     });
   };
 
+  // ✅ Delete handler
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Report',
+      'Are you sure you want to delete this report? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteReport(report.id);
+              onDelete?.(report.id);
+              Alert.alert('Deleted ✅', 'Report deleted successfully.');
+            } catch (err) {
+              Alert.alert('Error', 'Failed to delete report. Please try again.');
+              console.error('Delete error:', err);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
-    // ✅ Whole card is tappable — opens detail screen
     <TouchableOpacity
       style={styles.card}
       onPress={onPress}
-      activeOpacity={0.85}
+      activeOpacity={isAdmin ? 0.85 : 1}
     >
-      {/* Top Row — Image + Info */}
+      {/* Top Row */}
       <View style={styles.topRow}>
 
         {/* Thumbnail */}
@@ -58,33 +83,54 @@ const ReportCard = ({ report, isAdmin, onStatusChange, onPress }) => {
             <Ionicons name="calendar-outline" size={13} color="#9CA3AF" />
             <Text style={styles.meta}>{report.age} yrs • {report.gender}</Text>
           </View>
-          <View style={styles.metaRow}>
-            <Ionicons name="location-outline" size={13} color="#9CA3AF" />
-            <Text style={styles.meta} numberOfLines={1}>
-              {report.latitude?.toFixed(4)}, {report.longitude?.toFixed(4)}
-            </Text>
-          </View>
+          {report.house_no ? (
+            <View style={styles.metaRow}>
+              <Ionicons name="home-outline" size={13} color="#9CA3AF" />
+              <Text style={styles.meta} numberOfLines={1}>
+                {report.house_no} • Ward {report.ward_no}
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.metaRow}>
             <Ionicons name="time-outline" size={13} color="#9CA3AF" />
             <Text style={styles.meta}>{formatDate(report.created_at)}</Text>
           </View>
         </View>
 
-        {/* Status Badge */}
-        <View style={[styles.badge, { backgroundColor: sc.bg, borderColor: sc.border }]}>
-          <Ionicons name={statusIcon} size={13} color={sc.text} />
-          <Text style={[styles.badgeText, { color: sc.text }]}>
-            {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
-          </Text>
+        {/* Right side — status + delete */}
+        <View style={styles.rightCol}>
+          {/* Status Badge */}
+          <View style={[styles.badge, {
+            backgroundColor: sc.bg,
+            borderColor: sc.border,
+          }]}>
+            <Ionicons name={statusIcon} size={13} color={sc.text} />
+            <Text style={[styles.badgeText, { color: sc.text }]}>
+              {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
+            </Text>
+          </View>
+
+          {/* ✅ Delete button — only for regular users not admin */}
+          {!isAdmin && (
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={handleDelete}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="trash-outline" size={16} color="#EF4444" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
       {/* Description preview */}
       {report.description ? (
-        <Text style={styles.desc} numberOfLines={2}>{report.description}</Text>
+        <Text style={styles.desc} numberOfLines={2}>
+          {report.description}
+        </Text>
       ) : null}
 
-      {/* ✅ Tap hint for admin */}
+      {/* Tap hint for admin */}
       {isAdmin && (
         <View style={styles.tapHint}>
           <Ionicons name="eye-outline" size={13} color="#9CA3AF" />
@@ -119,12 +165,27 @@ const styles = StyleSheet.create({
   name: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   meta: { fontSize: 12, color: '#6B7280', flex: 1 },
+
+  // ✅ Right column — badge + delete button
+  rightCol: {
+    alignItems: 'center',
+    gap: 8,
+  },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 8, paddingVertical: 4,
     borderRadius: 20, borderWidth: 1, alignSelf: 'flex-start',
   },
   badgeText: { fontSize: 11, fontWeight: '700' },
+
+  // ✅ Delete button
+  deleteBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#FECACA',
+  },
+
   desc: {
     fontSize: 13, color: '#6B7280', lineHeight: 19,
     marginTop: 10, paddingTop: 10,
@@ -136,7 +197,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: '#F3F4F6',
     justifyContent: 'center',
   },
-  tapHintText: { fontSize: 12, color: '#9CA3AF', flex: 1, textAlign: 'center' },
+  tapHintText: {
+    fontSize: 12, color: '#9CA3AF',
+    flex: 1, textAlign: 'center',
+  },
 });
 
 export default ReportCard;

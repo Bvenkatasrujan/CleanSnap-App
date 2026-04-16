@@ -39,3 +39,10 @@ export const updateStatus = async (reportId, status) => {
   if (error) throw error;
   return data;
 };
+export const deleteReport = async (reportId) => {
+  const { error } = await supabase
+    .from('reports')
+    .delete()
+    .eq('id', reportId);
+  if (error) throw error;
+};
