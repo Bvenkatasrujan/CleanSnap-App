@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   KeyboardAvoidingView, Platform, Alert,
+  TouchableOpacity, Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { login } from '../../services/authService';
 import { validateEmail } from '../../utils/validators';
+import { useLanguage } from '../../i18n/LanguageContext';
+import LanguageScreen from '../LanguageScreen';
 import InputField from '../../components/InputField';
 import Button from '../../components/Button';
 
@@ -13,6 +17,10 @@ const LoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showLang, setShowLang] = useState(false);
+
+  // ✅ Language hook
+  const { t } = useLanguage();
 
   const validate = () => {
     const e = {};
@@ -44,6 +52,22 @@ const LoginScreen = ({ navigation }) => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
+
+        {/* ✅ Language picker button — top right */}
+        <TouchableOpacity
+          style={styles.langBtn}
+          onPress={() => setShowLang(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="language-outline" size={18} color="#16A34A" />
+          <Text style={styles.langBtnText}>{t('language')}</Text>
+        </TouchableOpacity>
+
+        {/* ✅ Language Modal */}
+        <Modal visible={showLang} animationType="slide">
+          <LanguageScreen onClose={() => setShowLang(false)} />
+        </Modal>
+
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoCircle}>
@@ -55,11 +79,11 @@ const LoginScreen = ({ navigation }) => {
 
         {/* Card */}
         <View style={styles.card}>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Sign in to continue</Text>
+          <Text style={styles.title}>{t('welcome')}</Text>
+          <Text style={styles.subtitle}>{t('signIn')}</Text>
 
           <InputField
-            label="Email Address"
+            label={t('email')}
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
@@ -69,7 +93,7 @@ const LoginScreen = ({ navigation }) => {
           />
 
           <InputField
-            label="Password"
+            label={t('password')}
             value={password}
             onChangeText={setPassword}
             placeholder="Min 6 characters"
@@ -79,7 +103,7 @@ const LoginScreen = ({ navigation }) => {
           />
 
           <Button
-            title="Sign In"
+            title={t('signIn')}
             onPress={handleLogin}
             loading={loading}
             icon="log-in-outline"
@@ -92,7 +116,7 @@ const LoginScreen = ({ navigation }) => {
           </View>
 
           <Button
-            title="Create Account"
+            title={t('signUp')}
             onPress={() => navigation.navigate('Register')}
             variant="secondary"
             icon="person-add-outline"
@@ -106,6 +130,17 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#F0FDF4' },
   container: { flexGrow: 1, padding: 24, justifyContent: 'center' },
+
+  // ✅ Language button
+  langBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-end', marginBottom: 12,
+    backgroundColor: '#DCFCE7', paddingHorizontal: 12,
+    paddingVertical: 6, borderRadius: 20,
+    borderWidth: 1, borderColor: '#86EFAC',
+  },
+  langBtnText: { fontSize: 13, color: '#166534', fontWeight: '600' },
+
   header: { alignItems: 'center', marginBottom: 32 },
   logoCircle: {
     width: 72, height: 72, borderRadius: 36,
@@ -126,7 +161,9 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 22, fontWeight: '800', color: '#1F2937', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 20 },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
+  divider: {
+    flexDirection: 'row', alignItems: 'center', marginVertical: 16,
+  },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
   dividerText: { marginHorizontal: 12, color: '#9CA3AF', fontSize: 13 },
 });

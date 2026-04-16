@@ -7,9 +7,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getAllReports, updateStatus } from '../../services/reportService';
 import { logout } from '../../services/authService';
+import { useLanguage } from '../../i18n/LanguageContext';
 import ReportCard from '../../components/ReportCard';
-
-const STATUS_FILTERS = ['All', 'pending', 'found', 'closed'];
 
 const AdminDashboardScreen = ({ navigation }) => {
   const [reports, setReports] = useState([]);
@@ -18,6 +17,9 @@ const AdminDashboardScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
   const [search, setSearch] = useState('');
+  const { t } = useLanguage();
+
+  const STATUS_FILTERS = ['All', 'pending', 'found', 'closed'];
 
   useEffect(() => { loadReports(); }, []);
   useEffect(() => { applyFilter(); }, [reports, activeFilter, search]);
@@ -51,12 +53,11 @@ const AdminDashboardScreen = ({ navigation }) => {
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('logout'), t('logoutConfirm'), [
+      { text: t('cancel'), style: 'cancel' },
       {
-        text: 'Logout', style: 'destructive', onPress: async () => {
+        text: t('logout'), style: 'destructive', onPress: async () => {
           await logout();
-          // ✅ No navigation needed — useAuth handles redirect
         }
       },
     ]);
@@ -84,8 +85,8 @@ const AdminDashboardScreen = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Admin Dashboard</Text>
-          <Text style={styles.headerSub}>Manage all reports</Text>
+          <Text style={styles.headerTitle}>{t('adminDashboard')}</Text>
+          <Text style={styles.headerSub}>{t('manageReports')}</Text>
         </View>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={20} color="#EF4444" />
@@ -95,10 +96,10 @@ const AdminDashboardScreen = ({ navigation }) => {
       {/* Stats */}
       <View style={styles.statsRow}>
         {[
-          { label: 'Total',   value: stats.total,   color: '#2563EB', bg: '#EFF6FF' },
-          { label: 'Pending', value: stats.pending, color: '#D97706', bg: '#FEF9C3' },
-          { label: 'Found',   value: stats.found,   color: '#16A34A', bg: '#DCFCE7' },
-          { label: 'Closed',  value: stats.closed,  color: '#94A3B8', bg: '#F1F5F9' },
+          { label: t('total'),   value: stats.total,   color: '#2563EB', bg: '#EFF6FF' },
+          { label: t('pending'), value: stats.pending, color: '#D97706', bg: '#FEF9C3' },
+          { label: t('found'),   value: stats.found,   color: '#16A34A', bg: '#DCFCE7' },
+          { label: t('closed'),  value: stats.closed,  color: '#94A3B8', bg: '#F1F5F9' },
         ].map((s) => (
           <View key={s.label} style={[styles.statCard, { backgroundColor: s.bg }]}>
             <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
@@ -112,7 +113,7 @@ const AdminDashboardScreen = ({ navigation }) => {
         <Ionicons name="search-outline" size={18} color="#9CA3AF" />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by name..."
+          placeholder={t('searchByName')}
           placeholderTextColor="#9CA3AF"
           value={search}
           onChangeText={setSearch}
@@ -133,7 +134,7 @@ const AdminDashboardScreen = ({ navigation }) => {
             onPress={() => setActiveFilter(f)}
           >
             <Text style={[styles.pillText, activeFilter === f && styles.pillTextActive]}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {f === 'All' ? 'All' : t(f)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -162,7 +163,7 @@ const AdminDashboardScreen = ({ navigation }) => {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="document-text-outline" size={48} color="#D1FAE5" />
-            <Text style={styles.emptyText}>No reports found</Text>
+            <Text style={styles.emptyText}>{t('noReports')}</Text>
           </View>
         }
       />

@@ -1,94 +1,120 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
-  RefreshControl, TouchableOpacity, Alert, ActivityIndicator,
+  RefreshControl, ActivityIndicator, Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { supabase } from '../../config/supabase';
 import { getMyReports } from '../../services/reportService';
-import { logout, getCurrentUser } from '../../services/authService';
+import { logout } from '../../services/authService';
+import { useLanguage } from '../../i18n/LanguageContext';
 import ReportCard from '../../components/ReportCard';
 
-const MyReportsScreen = ({ navigation }) => {
+const MyReportsScreen = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => { loadReports(); }, []);
+  const { t } = useLanguage();
 
   const loadReports = async () => {
     try {
-      const user = await getCurrentUser();
-      const data = await getMyReports(user.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const data = await getMyReports(session.user.id);
       setReports(data || []);
     } catch (err) {
-      Alert.alert('Error', 'Failed to load your reports');
+      Alert.alert('Error', 'Failed to load reports');
+      console.error(err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout', style: 'destructive',
-        onPress: async () => {
-          await logout();
-          navigation.replace('Login');
-        },
-      },
-    ]);
-  };
+  useFocusEffect(
+    useCallback(() => { loadReports(); }, [])
+  );
 
-  const stats = {
-    total: reports.length,
-    pending: reports.filter((r) => r.status === 'pending').length,
-    found: reports.filter((r) => r.status === 'found').length,
+  // ✅ Logout handler — useAuth detects session end and redirects automatically
+  const handleLogout = () => {
+    Alert.alert(
+      t('logout'),
+      t('logoutConfirm'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('logout'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+              // ✅ No navigation needed — useAuth handles redirect to Login
+            } catch (err) {
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#16A34A" />
-        <Text style={styles.loadingText}>Loading reports...</Text>
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
+      {/* ✅ Header with logout button */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>My Reports</Text>
-          <Text style={styles.subtitle}>Track your submissions</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>{t('myReports')}</Text>
+          <Text style={styles.headerSub}>
+            {reports.length} {t('reportsNearby')}
+          </Text>
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+
+        {/* ✅ Logout button — clearly visible top right */}
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
           <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+          <Text style={styles.logoutText}>{t('logout')}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Stats Row */}
       <View style={styles.statsRow}>
-        <View style={[styles.stat, { backgroundColor: '#EFF6FF' }]}>
-          <Text style={[styles.statNum, { color: '#2563EB' }]}>{stats.total}</Text>
-          <Text style={[styles.statLabel, { color: '#2563EB' }]}>Total</Text>
-        </View>
-        <View style={[styles.stat, { backgroundColor: '#FEF9C3' }]}>
-          <Text style={[styles.statNum, { color: '#D97706' }]}>{stats.pending}</Text>
-          <Text style={[styles.statLabel, { color: '#D97706' }]}>Pending</Text>
-        </View>
-        <View style={[styles.stat, { backgroundColor: '#DCFCE7' }]}>
-          <Text style={[styles.statNum, { color: '#16A34A' }]}>{stats.found}</Text>
-          <Text style={[styles.statLabel, { color: '#16A34A' }]}>Found</Text>
-        </View>
+        {[
+          { key: 'pending', label: t('pending'), color: '#D97706', bg: '#FEF9C3' },
+          { key: 'found',   label: t('found'),   color: '#16A34A', bg: '#DCFCE7' },
+          { key: 'closed',  label: t('closed'),  color: '#94A3B8', bg: '#F1F5F9' },
+        ].map((s) => (
+          <View key={s.key} style={[styles.statCard, { backgroundColor: s.bg }]}>
+            <Text style={[styles.statValue, { color: s.color }]}>
+              {reports.filter((r) => r.status === s.key).length}
+            </Text>
+            <Text style={[styles.statLabel, { color: s.color }]}>{s.label}</Text>
+          </View>
+        ))}
       </View>
 
+      {/* Report List */}
       <FlatList
         data={reports}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ReportCard report={item} />}
+        renderItem={({ item }) => (
+          <ReportCard report={item} isAdmin={false} />
+        )}
         contentContainerStyle={styles.list}
         refreshControl={
           <RefreshControl
@@ -100,11 +126,32 @@ const MyReportsScreen = ({ navigation }) => {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="document-text-outline" size={56} color="#D1FAE5" />
-            <Text style={styles.emptyTitle}>No reports yet</Text>
-            <Text style={styles.emptyText}>Tap "New Report" below to submit your first report</Text>
+            <Text style={styles.emptyTitle}>{t('noReports')}</Text>
+            <Text style={styles.emptyText}>Submit your first hygiene report</Text>
+
+            {/* ✅ Extra logout button at bottom when no reports */}
+            <TouchableOpacity
+              style={styles.logoutBtnLarge}
+              onPress={handleLogout}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="log-out-outline" size={18} color="#EF4444" />
+              <Text style={styles.logoutBtnLargeText}>{t('logout')}</Text>
+            </TouchableOpacity>
           </View>
         }
       />
+
+      {/* ✅ Floating logout button at bottom — always visible */}
+      <TouchableOpacity
+        style={styles.floatingLogout}
+        onPress={handleLogout}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+        <Text style={styles.floatingLogoutText}>{t('logout')}</Text>
+      </TouchableOpacity>
+
     </View>
   );
 };
@@ -115,35 +162,105 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center',
     justifyContent: 'center', backgroundColor: '#F0FDF4',
   },
-  loadingText: { marginTop: 12, color: '#6B7280' },
+  loadingText: { marginTop: 12, color: '#6B7280', fontSize: 14 },
+
+  // ✅ Header
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#FFFFFF', paddingHorizontal: 20,
-    paddingTop: 54, paddingBottom: 16,
-    borderBottomWidth: 1, borderBottomColor: '#D1FAE5',
-    shadowColor: '#16A34A', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 6, elevation: 3,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 54,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D1FAE5',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  title: { fontSize: 22, fontWeight: '800', color: '#166534' },
-  subtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  headerLeft: { flex: 1 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#166534' },
+  headerSub: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+
+  // ✅ Header logout button
   logoutBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#FEF2F2', alignItems: 'center',
-    justifyContent: 'center', borderWidth: 1, borderColor: '#FECACA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  statsRow: { flexDirection: 'row', padding: 14, gap: 10 },
-  stat: {
+  logoutText: {
+    fontSize: 13,
+    color: '#EF4444',
+    fontWeight: '700',
+  },
+
+  // Stats
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  statCard: {
     flex: 1, borderRadius: 14, paddingVertical: 12,
     alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
-  statNum: { fontSize: 24, fontWeight: '800' },
+  statValue: { fontSize: 22, fontWeight: '800' },
   statLabel: { fontSize: 11, fontWeight: '600', marginTop: 2 },
-  list: { padding: 16, paddingBottom: 30 },
-  empty: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 16 },
-  emptyText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', marginTop: 6, lineHeight: 20 },
+
+  // List
+  list: { paddingHorizontal: 16, paddingBottom: 100, paddingTop: 8 },
+
+  // Empty state
+  empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#9CA3AF' },
+  emptyText: { fontSize: 14, color: '#9CA3AF' },
+
+  // Empty state logout button
+  logoutBtnLarge: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 24, backgroundColor: '#FEF2F2',
+    paddingHorizontal: 24, paddingVertical: 12,
+    borderRadius: 14, borderWidth: 1, borderColor: '#FECACA',
+  },
+  logoutBtnLargeText: {
+    fontSize: 15, color: '#EF4444', fontWeight: '700',
+  },
+
+  // ✅ Floating logout button — always visible at bottom
+  floatingLogout: {
+    position: 'absolute',
+    bottom: 86,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  floatingLogoutText: {
+    fontSize: 14, color: '#EF4444', fontWeight: '700',
+  },
 });
 
 export default MyReportsScreen;

@@ -10,89 +10,93 @@ import { createReport } from '../../services/reportService';
 import { uploadImage } from '../../services/storageService';
 import { useLocation } from '../../hooks/useLocation';
 import { validateReportForm } from '../../utils/validators';
+import { useLanguage } from '../../i18n/LanguageContext';
 import InputField from '../../components/InputField';
 import Button from '../../components/Button';
 
-const GENDERS = ['Male', 'Female', 'Other'];
-
-const ReportFormScreen = ({ navigation }) => {
-  const [form, setForm] = useState({ name: '', age: '', gender: '', description: '' });
+const ReportFormScreen = () => {
+  const [form, setForm] = useState({
+    name: '', age: '', gender: '',
+    phone: '', house_no: '', ward_no: '',
+    description: '',
+  });
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const { location, loading: locLoading, error: locError, fetchLocation } = useLocation();
+  const { t } = useLanguage();
+
+  const GENDERS = [t('male'), t('female'), t('other')];
+  const GENDER_VALUES = ['Male', 'Female', 'Other'];
 
   const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }));
 
-  // ✅ Correct for expo-image-picker v17
-const pickImage = async () => {
-  try {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Needed', 'Please allow photo library access.');
-      return;
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Needed', 'Please allow photo library access.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets?.length > 0) {
+        setImage(result.assets[0].uri);
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Could not open gallery.');
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // ✅ correct for v17
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets?.length > 0) {
-      setImage(result.assets[0].uri);
-    }
-  } catch (err) {
-    Alert.alert('Error', 'Could not open gallery. Please try again.');
-    console.error('Gallery error:', err);
-  }
-};
+  };
 
-const takePhoto = async () => {
-  try {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Needed', 'Please allow camera access.');
-      return;
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Needed', 'Please allow camera access.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets?.length > 0) {
+        setImage(result.assets[0].uri);
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Could not open camera.');
     }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // ✅ correct for v17
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets?.length > 0) {
-      setImage(result.assets[0].uri);
-    }
-  } catch (err) {
-    Alert.alert('Error', 'Could not open camera. Please try again.');
-    console.error('Camera error:', err);
-  }
-};
-  // ✅ Submit — uses supabase.auth.getSession() directly, no getCurrentUser needed
+  };
+
   const handleSubmit = async () => {
     const validErr = validateReportForm(form);
     if (validErr) { Alert.alert('Validation Error', validErr); return; }
-    if (!location) { Alert.alert('Location Required', 'Please fetch your current location first.'); return; }
+    if (!location) {
+      Alert.alert('Location Required', 'Please fetch your current location first.');
+      return;
+    }
 
     setLoading(true);
     try {
-      // ✅ Get session directly — most reliable way
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session?.user) {
-        throw new Error('You are not logged in. Please sign in again.');
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('Not logged in. Please sign in again.');
 
       const user = session.user;
       let image_url = null;
-
-      if (image) {
-        image_url = await uploadImage(image, user.id);
-      }
+      if (image) image_url = await uploadImage(image, user.id);
 
       await createReport({
         name: form.name,
         age: parseInt(form.age, 10),
         gender: form.gender,
+        phone: form.phone,
+        house_no: form.house_no,
+        ward_no: form.ward_no,
         description: form.description,
         latitude: location.latitude,
         longitude: location.longitude,
@@ -101,15 +105,17 @@ const takePhoto = async () => {
         status: 'pending',
       });
 
-      // ✅ Reset form after success
-      setForm({ name: '', age: '', gender: '', description: '' });
+      setForm({
+        name: '', age: '', gender: '',
+        phone: '', house_no: '', ward_no: '',
+        description: '',
+      });
       setImage(null);
-
-      Alert.alert('Report Submitted ✅', 'Your hygiene issue report has been submitted successfully.');
+      Alert.alert(t('reportSuccess'), t('reportSuccessMsg'));
 
     } catch (err) {
       console.error('Submit error:', err);
-      Alert.alert('Submission Failed', err.message || 'Something went wrong. Please try again.');
+      Alert.alert('Submission Failed', err.message || 'Please try again.');
     } finally {
       setLoading(false);
     }
@@ -124,13 +130,13 @@ const takePhoto = async () => {
 
         {/* Header */}
         <View style={styles.pageHeader}>
-          <Text style={styles.pageTitle}>New Report</Text>
-          <Text style={styles.pageSubtitle}>Fill in the issue details and add a photo if available</Text>
+          <Text style={styles.pageTitle}>{t('newReport')}</Text>
+          <Text style={styles.pageSubtitle}>{t('newReportSub')}</Text>
         </View>
 
-        {/* ✅ Photo Section */}
+        {/* Photo */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📷 Photo</Text>
+          <Text style={styles.sectionTitle}>📷 {t('photo')}</Text>
           <View style={styles.imageRow}>
             {image ? (
               <TouchableOpacity onPress={() => setImage(null)} activeOpacity={0.8}>
@@ -142,20 +148,28 @@ const takePhoto = async () => {
             ) : (
               <View style={styles.imagePlaceholder}>
                 <Ionicons name="image-outline" size={40} color="#9CA3AF" />
-                <Text style={styles.imagePlaceholderText}>No photo</Text>
+                <Text style={styles.imagePlaceholderText}>{t('noPhoto')}</Text>
               </View>
             )}
-
-            {/* ✅ Both buttons side by side */}
             <View style={styles.imageBtns}>
-              <TouchableOpacity style={styles.imageBtn} onPress={pickImage} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.imageBtn}
+                onPress={pickImage}
+                activeOpacity={0.8}
+              >
                 <Ionicons name="images-outline" size={20} color="#2563EB" />
-                <Text style={styles.imageBtnText}>Gallery</Text>
+                <Text style={styles.imageBtnText}>{t('gallery')}</Text>
               </TouchableOpacity>
               <View style={{ height: 10 }} />
-              <TouchableOpacity style={[styles.imageBtn, styles.imageBtnOutline]} onPress={takePhoto} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={[styles.imageBtn, styles.imageBtnOutline]}
+                onPress={takePhoto}
+                activeOpacity={0.8}
+              >
                 <Ionicons name="camera-outline" size={20} color="#16A34A" />
-                <Text style={[styles.imageBtnText, { color: '#16A34A' }]}>Camera</Text>
+                <Text style={[styles.imageBtnText, { color: '#16A34A' }]}>
+                  {t('camera')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -163,35 +177,41 @@ const takePhoto = async () => {
 
         {/* Personal Info */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>👤 Personal Information</Text>
+          <Text style={styles.sectionTitle}>👤 {t('personalInfo')}</Text>
           <InputField
-            label="Full Name"
+            label={t('fullName')}
             value={form.name}
             onChangeText={set('name')}
-            placeholder="Enter full name"
+            placeholder={t('fullName')}
             icon="person-outline"
             autoCapitalize="words"
             error={errors.name}
           />
           <InputField
-            label="Age"
+            label={t('age')}
             value={form.age}
             onChangeText={set('age')}
-            placeholder="Age in years"
+            placeholder={t('age')}
             icon="calendar-outline"
             keyboardType="numeric"
             error={errors.age}
           />
-          <Text style={styles.label}>Gender</Text>
+          <Text style={styles.label}>{t('gender')}</Text>
           <View style={styles.genderRow}>
-            {GENDERS.map((g) => (
+            {GENDERS.map((g, index) => (
               <TouchableOpacity
                 key={g}
-                style={[styles.genderBtn, form.gender === g && styles.genderBtnActive]}
-                onPress={() => set('gender')(g)}
+                style={[
+                  styles.genderBtn,
+                  form.gender === GENDER_VALUES[index] && styles.genderBtnActive,
+                ]}
+                onPress={() => set('gender')(GENDER_VALUES[index])}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.genderText, form.gender === g && styles.genderTextActive]}>
+                <Text style={[
+                  styles.genderText,
+                  form.gender === GENDER_VALUES[index] && styles.genderTextActive,
+                ]}>
                   {g}
                 </Text>
               </TouchableOpacity>
@@ -199,14 +219,52 @@ const takePhoto = async () => {
           </View>
         </View>
 
+        {/* Contact Info */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📞 {t('contactInfo')}</Text>
+          <InputField
+            label={t('phone')}
+            value={form.phone}
+            onChangeText={set('phone')}
+            placeholder={t('phonePlaceholder')}
+            icon="call-outline"
+            keyboardType="phone-pad"
+            maxLength={10}
+            error={errors.phone}
+          />
+        </View>
+
+        {/* ✅ Address Info — House No + Ward No */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🏠 {t('addressInfo')}</Text>
+          <InputField
+            label={t('houseNo')}
+            value={form.house_no}
+            onChangeText={set('house_no')}
+            placeholder={t('houseNoPlaceholder')}
+            icon="home-outline"
+            autoCapitalize="characters"
+            error={errors.house_no}
+          />
+          <InputField
+            label={t('wardNo')}
+            value={form.ward_no}
+            onChangeText={set('ward_no')}
+            placeholder={t('wardNoPlaceholder')}
+            icon="business-outline"
+            keyboardType="default"
+            error={errors.ward_no}
+          />
+        </View>
+
         {/* Description */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📝 Description</Text>
+          <Text style={styles.sectionTitle}>📝 {t('description')}</Text>
           <InputField
-            label="Details about the hygiene issue"
+            label={t('description')}
             value={form.description}
             onChangeText={set('description')}
-            placeholder="Describe the issue in detail..."
+            placeholder={t('descriptionPlaceholder')}
             multiline
             numberOfLines={5}
             icon="document-text-outline"
@@ -215,20 +273,20 @@ const takePhoto = async () => {
 
         {/* Location */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📍 Location</Text>
+          <Text style={styles.sectionTitle}>📍 {t('location')}</Text>
           {location ? (
             <View style={styles.locationCard}>
               <Ionicons name="location" size={20} color="#16A34A" />
               <Text style={styles.locationText}>
                 {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
               </Text>
-              <TouchableOpacity onPress={fetchLocation} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity onPress={fetchLocation}>
                 <Ionicons name="refresh" size={18} color="#2563EB" />
               </TouchableOpacity>
             </View>
           ) : (
             <Button
-              title={locLoading ? 'Fetching location...' : 'Get My Location'}
+              title={locLoading ? t('fetchingLocation') : t('getLocation')}
               onPress={fetchLocation}
               loading={locLoading}
               variant="secondary"
@@ -240,7 +298,7 @@ const takePhoto = async () => {
 
         {/* Submit */}
         <Button
-          title="Submit Report"
+          title={t('submitReport')}
           onPress={handleSubmit}
           loading={loading}
           icon="send-outline"
@@ -264,7 +322,10 @@ const styles = StyleSheet.create({
     shadowColor: '#16A34A', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#166534', marginBottom: 12 },
+  sectionTitle: {
+    fontSize: 15, fontWeight: '700',
+    color: '#166534', marginBottom: 12,
+  },
   imageRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   imagePreview: {
     width: 90, height: 110, borderRadius: 12,
@@ -279,21 +340,19 @@ const styles = StyleSheet.create({
   },
   imagePlaceholderText: { fontSize: 11, color: '#9CA3AF' },
   imageBtns: { flex: 1 },
-  // ✅ Custom image buttons — more reliable than Button component for this layout
   imageBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#EFF6FF', borderRadius: 10,
-    paddingVertical: 10, paddingHorizontal: 14,
-    borderWidth: 1, borderColor: '#BFDBFE', gap: 6,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', backgroundColor: '#EFF6FF',
+    borderRadius: 10, paddingVertical: 10,
+    paddingHorizontal: 14, borderWidth: 1,
+    borderColor: '#BFDBFE', gap: 6,
   },
-  imageBtnOutline: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#86EFAC',
+  imageBtnOutline: { backgroundColor: '#F0FDF4', borderColor: '#86EFAC' },
+  imageBtnText: { fontSize: 14, fontWeight: '600', color: '#2563EB' },
+  label: {
+    fontSize: 13, fontWeight: '600',
+    color: '#166534', marginBottom: 8, marginTop: 4,
   },
-  imageBtnText: {
-    fontSize: 14, fontWeight: '600', color: '#2563EB',
-  },
-  label: { fontSize: 13, fontWeight: '600', color: '#166534', marginBottom: 8, marginTop: 4 },
   genderRow: { flexDirection: 'row', gap: 10 },
   genderBtn: {
     flex: 1, paddingVertical: 10, borderRadius: 10,

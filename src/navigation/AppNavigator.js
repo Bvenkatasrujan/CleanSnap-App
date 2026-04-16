@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -12,6 +12,7 @@ import MapScreen from '../screens/user/MapScreen';
 import MyReportsScreen from '../screens/user/MyReportsScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminReportDetailScreen from '../screens/admin/AdminReportDetailScreen';
+import SplashScreen from '../screens/SplashScreen';
 import { useAuth } from '../hooks/useAuth';
 
 const Stack = createNativeStackNavigator();
@@ -40,7 +41,13 @@ const UserTabs = () => (
       tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
       tabBarIcon: ({ color, size, focused }) => {
         const icons = TAB_ICONS[route.name];
-        return <Ionicons name={focused ? icons.active : icons.inactive} size={size} color={color} />;
+        return (
+          <Ionicons
+            name={focused ? icons.active : icons.inactive}
+            size={size}
+            color={color}
+          />
+        );
       },
     })}
   >
@@ -53,13 +60,26 @@ const UserTabs = () => (
 const AppNavigator = () => {
   const { user, role, loading } = useAuth();
 
+  // ✅ Show splash screen first
+  const [splashDone, setSplashDone] = useState(false);
+
+  // ✅ Show splash until animation finishes
+  if (!splashDone) {
+    return <SplashScreen onFinish={() => setSplashDone(true)} />;
+  }
+
+  // ✅ Show loading spinner while auth checks session
   if (loading) {
     return (
       <View style={styles.splash}>
         <View style={styles.splashLogo}>
-          <Ionicons name="search" size={36} color="#16A34A" />
+          <Ionicons name="camera" size={36} color="#16A34A" />
         </View>
-        <ActivityIndicator size="large" color="#16A34A" style={{ marginTop: 20 }} />
+        <ActivityIndicator
+          size="large"
+          color="#16A34A"
+          style={{ marginTop: 20 }}
+        />
       </View>
     );
   }
@@ -74,7 +94,6 @@ const AppNavigator = () => {
           </>
         ) : role === 'admin' ? (
           <>
-            {/* ✅ Both admin screens in the stack */}
             <Stack.Screen name="AdminDashboard"    component={AdminDashboardScreen}    />
             <Stack.Screen name="AdminReportDetail" component={AdminReportDetailScreen} />
           </>
@@ -88,12 +107,15 @@ const AppNavigator = () => {
 
 const styles = StyleSheet.create({
   splash: {
-    flex: 1, backgroundColor: '#F0FDF4',
-    alignItems: 'center', justifyContent: 'center',
+    flex: 1,
+    backgroundColor: '#F0FDF4',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   splashLogo: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: '#86EFAC',
     shadowColor: '#16A34A', shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15, shadowRadius: 12, elevation: 6,

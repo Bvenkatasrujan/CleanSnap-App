@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { register } from '../../services/authService';
 import { validateEmail, validatePassword } from '../../utils/validators';
+import { useLanguage } from '../../i18n/LanguageContext';
 import InputField from '../../components/InputField';
 import Button from '../../components/Button';
 
@@ -14,6 +15,7 @@ const RegisterScreen = ({ navigation }) => {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const { t } = useLanguage();
 
   const validate = () => {
     const e = {};
@@ -33,7 +35,7 @@ const RegisterScreen = ({ navigation }) => {
       Alert.alert(
         'Account Created! 🎉',
         'Your account has been created. Please sign in.',
-        [{ text: 'Sign In', onPress: () => navigation.navigate('Login') }]
+        [{ text: t('signIn'), onPress: () => navigation.navigate('Login') }]
       );
     } catch (err) {
       Alert.alert('Registration Failed', err.message || 'Something went wrong');
@@ -47,21 +49,18 @@ const RegisterScreen = ({ navigation }) => {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <View style={styles.logoCircle}>
             <Text style={styles.logoEmoji}>👤</Text>
           </View>
-          <Text style={styles.appName}>Create Account</Text>
+          <Text style={styles.appName}>{t('signUp')}</Text>
           <Text style={styles.tagline}>Join CleanSnap App to report hygiene issues</Text>
         </View>
 
         <View style={styles.card}>
           <InputField
-            label="Email Address"
+            label={t('email')}
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
@@ -70,7 +69,7 @@ const RegisterScreen = ({ navigation }) => {
             error={errors.email}
           />
           <InputField
-            label="Password"
+            label={t('password')}
             value={password}
             onChangeText={setPassword}
             placeholder="Min 6 characters"
@@ -79,7 +78,7 @@ const RegisterScreen = ({ navigation }) => {
             error={errors.password}
           />
           <InputField
-            label="Confirm Password"
+            label={t('confirmPassword')}
             value={confirm}
             onChangeText={setConfirm}
             placeholder="Re-enter your password"
@@ -87,16 +86,14 @@ const RegisterScreen = ({ navigation }) => {
             icon="shield-checkmark-outline"
             error={errors.confirm}
           />
-
           <Button
-            title="Create Account"
+            title={t('signUp')}
             onPress={handleRegister}
             loading={loading}
             icon="person-add-outline"
           />
-
           <Button
-            title="Already have an account? Sign In"
+            title={t('alreadyAccount')}
             onPress={() => navigation.goBack()}
             variant="outline"
           />
